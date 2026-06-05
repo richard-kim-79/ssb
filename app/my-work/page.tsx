@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
 import type { Session, Usage } from "@/lib/client/types";
-import { Alert, Button, Card, Field, Spinner, Textarea } from "@/components/ui";
+import { Alert, Button, Card, Field, Spinner } from "@/components/ui";
 
 // 플랜 표시 이름 (스키마를 클라이언트로 import하지 않기 위해 인라인)
 const PLAN_LABELS: Record<string, string> = {
@@ -48,8 +48,6 @@ export default function MyWorkPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
 
   // create-session form state
-  const [promptText, setPromptText] = useState("");
-  const [criteriaText, setCriteriaText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const promptFilesRef = useRef<HTMLInputElement>(null);
@@ -87,29 +85,22 @@ export default function MyWorkPage() {
 
     const promptFiles = promptFilesRef.current?.files;
     const criteriaFiles = criteriaFilesRef.current?.files;
-    const hasFiles = (promptFiles && promptFiles.length > 0) || (criteriaFiles && criteriaFiles.length > 0);
 
-    if (!hasFiles && (promptText.trim().length < 5 || criteriaText.trim().length < 5)) {
-      setError("문제와 채점 기준을 입력하거나 파일을 업로드해주세요");
+    if (!promptFiles || promptFiles.length === 0) {
+      setError("문제(지문) 파일을 업로드해주세요");
+      return;
+    }
+    if (!criteriaFiles || criteriaFiles.length === 0) {
+      setError("채점 기준 파일을 업로드해주세요");
       return;
     }
 
     setCreating(true);
     try {
-      let session: Session;
-      if (hasFiles) {
-        const form = new FormData();
-        form.set("promptText", promptText);
-        form.set("criteriaText", criteriaText);
-        if (promptFiles) for (const f of Array.from(promptFiles)) form.append("promptFiles", f);
-        if (criteriaFiles) for (const f of Array.from(criteriaFiles)) form.append("criteriaFiles", f);
-        ({ session } = await api.createSessionForm(form));
-      } else {
-        ({ session } = await api.createSession({
-          promptContent: promptText,
-          criteriaContent: criteriaText,
-        }));
-      }
+      const form = new FormData();
+      for (const f of Array.from(promptFiles)) form.append("promptFiles", f);
+      for (const f of Array.from(criteriaFiles)) form.append("criteriaFiles", f);
+      const { session } = await api.createSessionForm(form);
       router.push(`/sessions/${session.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "세션 생성에 실패했습니다");
@@ -164,14 +155,7 @@ export default function MyWorkPage() {
         <h2 className="mb-4 text-lg font-semibold text-slate-900">새 채점 세션 만들기</h2>
         <form onSubmit={createSession} className="flex flex-col gap-4">
           {error && <Alert>{error}</Alert>}
-          <Field label="문제 (지문)" hint="논술 문제를 붙여넣거나 아래에서 파일을 올리세요">
-            <Textarea
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              placeholder="예) 제시문을 읽고 ‘인공지능 시대의 노동’에 대한 자신의 견해를 800자 내외로 논술하시오."
-            />
-          </Field>
-          <Field label="문제 파일 (선택)" hint="txt · docx · pdf · 이미지">
+          <Field label="문제 (지문) 파일" hint="PDF · 사진 · docx · txt — 사진·PDF는 AI가 자동으로 글자를 읽어옵니다">
             <input
               ref={promptFilesRef}
               type="file"
@@ -180,14 +164,7 @@ export default function MyWorkPage() {
               className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100"
             />
           </Field>
-          <Field label="채점 기준" hint="배점·만점·평가 항목을 적어주세요">
-            <Textarea
-              value={criteriaText}
-              onChange={(e) => setCriteriaText(e.target.value)}
-              placeholder="예) 총 8점 만점. 논지 명확성(3점), 근거 타당성(3점), 표현·구성(2점)."
-            />
-          </Field>
-          <Field label="채점 기준 파일 (선택)" hint="txt · docx · pdf · 이미지">
+          <Field label="채점 기준 파일" hint="PDF · 사진 · docx · txt">
             <input
               ref={criteriaFilesRef}
               type="file"

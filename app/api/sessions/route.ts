@@ -8,6 +8,8 @@ import { cleanText } from "@/lib/parsing/document";
 import { processUploads, filesFromForm } from "@/lib/parsing/uploads";
 
 export const runtime = "nodejs";
+// 사진·PDF 문제/기준 파일은 업로드 시 멀티모달 AI로 전사(OCR)하므로 시간이 더 걸릴 수 있다.
+export const maxDuration = 300;
 
 interface SessionInput {
   promptContent: string;

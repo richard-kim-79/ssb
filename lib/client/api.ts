@@ -8,6 +8,11 @@ import type {
   Session,
   Submission,
   AnalysisResult,
+  Annotation,
+  Revision,
+  RevisionWithResult,
+  NewAnnotationInput,
+  UpdateAnnotationInput,
 } from "./types";
 
 export class ApiError extends Error {
@@ -77,4 +82,39 @@ export const api = {
     request<{ submission: Submission }>(`/api/sessions/${sessionId}/submissions`, { method: "POST", body: form }),
   getSubmission: (id: string) =>
     request<{ submission: Submission; result: AnalysisResult | null }>(`/api/submissions/${id}`),
+
+  // --- patch: inline 첨삭 ---
+  /** Generate AI annotations (synchronous; replaces prior AI annotations). */
+  patchAnnotate: (submissionId: string, revisionId?: string | null) =>
+    request<{ annotations: Annotation[] }>(
+      `/api/submissions/${submissionId}/patch/annotate`,
+      jsonInit("POST", { revisionId: revisionId ?? null }),
+    ),
+  listAnnotations: (submissionId: string, revisionId?: string | null) =>
+    request<{ annotations: Annotation[] }>(
+      `/api/submissions/${submissionId}/patch/annotations${revisionId ? `?revisionId=${encodeURIComponent(revisionId)}` : ""}`,
+    ),
+  addAnnotation: (submissionId: string, input: NewAnnotationInput) =>
+    request<{ annotation: Annotation }>(
+      `/api/submissions/${submissionId}/patch/annotations`,
+      jsonInit("POST", input),
+    ),
+  updateAnnotation: (submissionId: string, annotationId: string, input: UpdateAnnotationInput) =>
+    request<{ annotation: Annotation }>(
+      `/api/submissions/${submissionId}/patch/annotations/${annotationId}`,
+      jsonInit("PATCH", input),
+    ),
+  deleteAnnotation: (submissionId: string, annotationId: string) =>
+    request<{ ok: true }>(`/api/submissions/${submissionId}/patch/annotations/${annotationId}`, {
+      method: "DELETE",
+    }),
+
+  // --- patch: 재채점 (revisions) ---
+  listRevisions: (submissionId: string) =>
+    request<{ revisions: RevisionWithResult[] }>(`/api/submissions/${submissionId}/patch/revisions`),
+  createRevision: (submissionId: string, content: string, parentRevisionId?: string | null) =>
+    request<{ revision: Revision }>(
+      `/api/submissions/${submissionId}/patch/revisions`,
+      jsonInit("POST", { content, parentRevisionId: parentRevisionId ?? null }),
+    ),
 };

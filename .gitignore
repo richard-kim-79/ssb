@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local dev file storage (Supabase Storage is used in production)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -17,7 +17,8 @@ import { processUploads, filesFromForm } from "@/lib/parsing/uploads";
 import { enqueueGrade } from "@/lib/queue/enqueue";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 사진·PDF 답안은 업로드 시 멀티모달 AI로 전사(OCR)하므로 배치는 시간이 더 걸릴 수 있다.
+export const maxDuration = 300;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,9 +38,8 @@ async function readItems(req: Request): Promise<EssayItem[]> {
     const arr = Array.isArray(body.essays) ? body.essays : [];
     return arr.map((raw) => {
       const item = (raw ?? {}) as Record<string, unknown>;
-      const text = String(item.essayContent ?? "");
       return {
-        essayContent: text.startsWith("[IMAGE_DATA:") ? text : cleanText(text),
+        essayContent: cleanText(String(item.essayContent ?? "")),
         studentName: item.studentName ? String(item.studentName) : null,
         studentId: item.studentId ? String(item.studentId) : null,
         essayFilename: null,
@@ -108,9 +108,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
 
   const created: EssaySubmission[] = [];
   for (const item of items) {
-    const isImage = item.essayContent.startsWith("[IMAGE_DATA:");
     if (
-      !isImage &&
       !validateContent(
         { text: item.essayContent, filename: "", fileType: "", extractedAt: "" },
         "essay",

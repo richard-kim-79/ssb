@@ -1,5 +1,6 @@
 import * as path from "path";
 import mammoth from "mammoth";
+import { transcribeFile } from "@/lib/ai/transcribe";
 
 export interface DocumentContent {
   text: string;
@@ -46,32 +47,10 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
 }
 
 async function extractFromPdf(buffer: Buffer): Promise<string> {
-  // Dynamic import: pdf-parse reads a test fixture at module init when bundled.
-  const mod = (await import("pdf-parse")) as unknown as {
-    default?: (b: Buffer) => Promise<{ text: string }>;
-  };
-  const parse = mod.default ?? (mod as unknown as (b: Buffer) => Promise<{ text: string }>);
-
   if (buffer.length < 100) throw new Error("PDF 파일이 너무 작거나 비어있습니다.");
   if (!buffer.subarray(0, 5).toString().startsWith("%PDF")) throw new Error("유효하지 않은 PDF 파일 형식입니다.");
-
-  try {
-    const data = await parse(buffer);
-    if (!data.text || data.text.trim().length === 0)
-      throw new Error("PDF에서 텍스트를 추출할 수 없습니다. 파일이 손상되었거나 텍스트가 없을 수 있습니다.");
-    return data.text;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "";
-    if (/XRef|Invalid PDF structure/.test(msg))
-      throw new Error("PDF 파일이 손상되었거나 지원되지 않는 형식입니다. 다른 PDF 파일을 사용해주세요.");
-    if (/password|encrypted/.test(msg)) throw new Error("PDF 파일이 암호로 보호되어 있습니다. 암호가 없는 PDF 파일을 사용해주세요.");
-    throw error instanceof Error ? error : new Error("PDF 파일 처리 중 오류가 발생했습니다.");
-  }
-}
-
-function extractFromImage(buffer: Buffer, mimeType: string): string {
-  // OCR is handled downstream by Gemini multimodal. Encode the requested mime type.
-  return `[IMAGE_DATA:${mimeType};base64,${buffer.toString("base64")}]`;
+  // PDFs are mostly scans/photos of handwritten answers → transcribe with multimodal AI.
+  return transcribeFile(buffer, "application/pdf");
 }
 
 /** Extract text from an in-memory buffer based on the original filename's extension. */
@@ -94,16 +73,15 @@ export async function extractTextFromBuffer(buffer: Buffer, originalName: string
       case ".jpeg":
       case ".png":
       case ".webp":
-        text = extractFromImage(buffer, IMAGE_MIME[ext]);
+        // Photos of handwritten/printed answers → transcribe with multimodal AI.
+        text = await transcribeFile(buffer, IMAGE_MIME[ext]);
         break;
       default:
         throw new Error(`지원하지 않는 파일 형식입니다: ${ext}`);
     }
 
-    if (!text.startsWith("[IMAGE_DATA:")) {
-      text = cleanText(text);
-      if (text.length < 5) throw new Error("추출된 텍스트가 너무 짧습니다. 파일 내용을 확인해주세요.");
-    }
+    text = cleanText(text);
+    if (text.length < 5) throw new Error("추출된 텍스트가 너무 짧습니다. 파일 내용을 확인해주세요.");
     return { text, filename: originalName, fileType, extractedAt: new Date().toISOString() };
   } catch (error) {
     console.error(`문서 파싱 오류 (${originalName}):`, error);
@@ -114,8 +92,6 @@ export async function extractTextFromBuffer(buffer: Buffer, originalName: string
 /** Lightweight content validation (mirrors the original implementation). */
 export function validateContent(content: DocumentContent, expectedType: "prompt" | "criteria" | "essay"): boolean {
   const { text } = content;
-  if (text.startsWith("[IMAGE_DATA:")) return text.length > 20;
-
   const minLengths = { prompt: 20, criteria: 30, essay: 50 };
   if (text.length < minLengths[expectedType]) return false;
 

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
 import type { Session, Submission } from "@/lib/client/types";
-import { Alert, Button, Card, Field, Input, ProgressBar, Spinner, StatusBadge, Textarea } from "@/components/ui";
+import { Alert, Button, Card, Field, Input, ProgressBar, Spinner, StatusBadge } from "@/components/ui";
 
 const ACTIVE = new Set(["pending", "analyzing"]);
 
@@ -22,15 +22,6 @@ function formatDateTime(iso: string): string {
   }
 }
 
-async function fileToImageMarker(file: File): Promise<string> {
-  const buf = await file.arrayBuffer();
-  let binary = "";
-  const bytes = new Uint8Array(buf);
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  const b64 = btoa(binary);
-  return `[IMAGE_DATA:${file.type || "image/jpeg"};base64,${b64}]`;
-}
-
 export default function SessionDetailPage() {
   const params = useParams<{ id: string }>();
   const sessionId = params.id;
@@ -43,7 +34,6 @@ export default function SessionDetailPage() {
 
   // submit form
   const [studentName, setStudentName] = useState("");
-  const [essayText, setEssayText] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const essayFilesRef = useRef<HTMLInputElement>(null);
@@ -91,40 +81,19 @@ export default function SessionDetailPage() {
     setSubmitError(null);
 
     const files = essayFilesRef.current?.files;
-    const imageFiles = files ? Array.from(files).filter((f) => f.type.startsWith("image/")) : [];
-    const docFiles = files ? Array.from(files).filter((f) => !f.type.startsWith("image/")) : [];
-    const hasText = essayText.trim().length >= 5;
-
-    if (!hasText && imageFiles.length === 0 && docFiles.length === 0) {
-      setSubmitError("답안을 입력하거나 파일을 업로드해주세요");
+    if (!files || files.length === 0) {
+      setSubmitError("답안 파일을 업로드해주세요");
       return;
     }
 
     setSubmitting(true);
     try {
-      // Image answers are sent as inline [IMAGE_DATA:...] markers via JSON so the
-      // vision pipeline picks them up; document/text uploads go through multipart.
-      if (imageFiles.length > 0 && docFiles.length === 0) {
-        const marker = await fileToImageMarker(imageFiles[0]);
-        const essayContent = hasText ? `${essayText}\n\n${marker}` : marker;
-        await api.createSubmission(sessionId, {
-          essayContent,
-          studentName: studentName || undefined,
-        });
-      } else if (docFiles.length > 0 || imageFiles.length > 0) {
-        const form = new FormData();
-        if (hasText) form.set("essayContent", essayText);
-        if (studentName) form.set("studentName", studentName);
-        for (const f of [...docFiles, ...imageFiles]) form.append("essayFiles", f);
-        await api.createSubmissionForm(sessionId, form);
-      } else {
-        await api.createSubmission(sessionId, {
-          essayContent: essayText,
-          studentName: studentName || undefined,
-        });
-      }
+      // 답안은 파일로만 받는다. 사진·PDF는 서버에서 멀티모달 AI가 텍스트로 옮겨 채점·첨삭한다.
+      const form = new FormData();
+      if (studentName) form.set("studentName", studentName);
+      for (const f of Array.from(files)) form.append("essayFiles", f);
+      await api.createSubmissionForm(sessionId, form);
 
-      setEssayText("");
       setStudentName("");
       if (essayFilesRef.current) essayFilesRef.current.value = "";
       await refresh();
@@ -191,14 +160,7 @@ export default function SessionDetailPage() {
           <Field label="학생 이름 (선택)">
             <Input value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="홍길동" />
           </Field>
-          <Field label="답안" hint="텍스트로 붙여넣거나 아래에서 파일(손글씨 사진 포함)을 올리세요">
-            <Textarea
-              value={essayText}
-              onChange={(e) => setEssayText(e.target.value)}
-              placeholder="학생 답안을 붙여넣으세요"
-            />
-          </Field>
-          <Field label="답안 파일 (선택)" hint="txt · docx · pdf · 이미지(손글씨)">
+          <Field label="답안 파일" hint="PDF · 사진(손글씨) · docx · txt — 사진·PDF는 AI가 자동으로 글자를 읽어옵니다">
             <input
               ref={essayFilesRef}
               type="file"

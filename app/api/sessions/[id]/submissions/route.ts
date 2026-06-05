@@ -10,6 +10,8 @@ import { processUploads, filesFromForm } from "@/lib/parsing/uploads";
 import { enqueueGrade } from "@/lib/queue/enqueue";
 
 export const runtime = "nodejs";
+// 사진·PDF 답안은 업로드 시 멀티모달 AI로 전사(OCR)하므로 시간이 더 걸릴 수 있다.
+export const maxDuration = 300;
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,10 +28,8 @@ async function readInput(req: Request, submissionId: string): Promise<Submission
 
   if (ct.includes("application/json")) {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-    const raw = String(body.essayContent ?? "");
-    const text = raw.startsWith("[IMAGE_DATA:") ? raw : cleanText(raw);
     return {
-      essayContent: text,
+      essayContent: cleanText(String(body.essayContent ?? "")),
       studentName: body.studentName ? String(body.studentName) : null,
       studentId: body.studentId ? String(body.studentId) : null,
       essayFilename: null,
@@ -42,11 +42,10 @@ async function readInput(req: Request, submissionId: string): Promise<Submission
     filesFromForm(form, "essayFiles"),
     `permanent/submissions/${submissionId}`,
   );
-  const pasted = String(form.get("essayContent") ?? "");
-  const pastedText = pasted.startsWith("[IMAGE_DATA:") ? pasted : cleanText(pasted);
+  const pasted = cleanText(String(form.get("essayContent") ?? ""));
 
   return {
-    essayContent: [pastedText, upload.text].filter(Boolean).join("\n\n"),
+    essayContent: [pasted, upload.text].filter(Boolean).join("\n\n"),
     studentName: form.get("studentName") ? String(form.get("studentName")) : null,
     studentId: form.get("studentId") ? String(form.get("studentId")) : null,
     essayFilename: upload.filenames[0] ?? null,
@@ -77,8 +76,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
   if (!input.essayContent || input.essayContent.length < 5) {
     throw new ApiError(400, "답안 내용을 입력하거나 파일을 업로드해주세요", "missing_essay");
   }
-  const isImage = input.essayContent.startsWith("[IMAGE_DATA:");
-  if (!isImage && !validateContent({ text: input.essayContent, filename: "", fileType: "", extractedAt: "" }, "essay")) {
+  if (!validateContent({ text: input.essayContent, filename: "", fileType: "", extractedAt: "" }, "essay")) {
     throw new ApiError(400, "답안 내용이 올바르지 않습니다", "invalid_essay");
   }
 

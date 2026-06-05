@@ -144,9 +144,14 @@ export default function ReportPage() {
         <Link href={backHref} className="text-sm font-medium text-indigo-600 hover:underline">
           ← 세션으로 돌아가기
         </Link>
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
-          인쇄 / PDF 저장
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href={`/submissions/${submissionId}/patch`}>
+            <Button size="sm">패치 · 첨삭하기</Button>
+          </Link>
+          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+            인쇄 / PDF 저장
+          </Button>
+        </div>
       </div>
 
       <div>

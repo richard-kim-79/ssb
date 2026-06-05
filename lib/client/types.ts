@@ -61,6 +61,7 @@ export interface CategoryScore {
 export interface AnalysisResult {
   id: string;
   submissionId: string;
+  revisionId?: string | null;
   overallScore: number;
   maxScore: number;
   categoryScores: CategoryScore[];
@@ -71,4 +72,90 @@ export interface AnalysisResult {
   model: string | null;
   tier: string | null;
   createdAt: string;
+}
+
+// --- Patch (inline 첨삭 + 재채점) ---
+
+export type AnnotationType = "correction" | "highlight" | "comment";
+export type AnnotationSeverity = "minor" | "major" | "suggestion";
+export type AnnotationSource = "ai" | "user";
+
+export interface Annotation {
+  id: string;
+  submissionId: string;
+  revisionId: string | null;
+  type: AnnotationType;
+  startOffset: number;
+  endOffset: number;
+  quotedText: string;
+  prefix: string | null;
+  suffix: string | null;
+  suggestedText: string | null;
+  comment: string | null;
+  color: string | null;
+  severity: AnnotationSeverity | null;
+  source: AnnotationSource;
+  orphaned: number; // 1 = couldn't re-anchor after a revision
+  orderIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DiffOpKind = "equal" | "insert" | "delete";
+export interface DiffOp {
+  op: DiffOpKind;
+  text: string;
+}
+
+export interface ImprovedCategory {
+  name: string;
+  before: number | null;
+  after: number;
+  delta: number | null;
+}
+
+export type RevisionStatus = "pending" | "analyzing" | "completed" | "error";
+
+export interface Revision {
+  id: string;
+  submissionId: string;
+  versionNumber: number;
+  parentRevisionId: string | null;
+  content: string;
+  diffFromParent: DiffOp[] | null;
+  resultId: string | null;
+  overallScore: number | null;
+  maxScore: number | null;
+  scoreDelta: number | null;
+  improvedCategories: ImprovedCategory[] | null;
+  status: RevisionStatus;
+  progress: number;
+  progressMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** A revision row plus its (joined) grading result, as returned by the list endpoint. */
+export interface RevisionWithResult {
+  revision: Revision;
+  result: AnalysisResult | null;
+}
+
+export interface NewAnnotationInput {
+  type: AnnotationType;
+  quotedText: string;
+  before?: string | null;
+  suggestedText?: string | null;
+  comment?: string | null;
+  color?: string | null;
+  severity?: AnnotationSeverity | null;
+  revisionId?: string | null;
+}
+
+export interface UpdateAnnotationInput {
+  type?: AnnotationType;
+  comment?: string | null;
+  suggestedText?: string | null;
+  color?: string | null;
+  severity?: AnnotationSeverity | null;
 }

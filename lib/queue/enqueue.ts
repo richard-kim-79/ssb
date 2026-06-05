@@ -15,3 +15,16 @@ export async function enqueueGrade(submissionId: string): Promise<void> {
   const { processGradeJob } = await import("@/lib/jobs/grade");
   void processGradeJob(submissionId).catch((err) => console.error("[dev grade]", err));
 }
+
+/**
+ * Enqueue a re-grade job for a revision (mirrors enqueueGrade).
+ * QStash when configured; otherwise an in-process fire-and-forget for local dev.
+ */
+export async function enqueueRegrade(revisionId: string): Promise<void> {
+  if (qstashConfigured()) {
+    await publishJob("/api/jobs/regrade", { revisionId });
+    return;
+  }
+  const { processRegradeJob } = await import("@/lib/jobs/regrade");
+  void processRegradeJob(revisionId).catch((err) => console.error("[dev regrade]", err));
+}
