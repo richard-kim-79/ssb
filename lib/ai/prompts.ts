@@ -22,6 +22,17 @@ export function buildSystemPrompt(): string {
 
 const hasImageData = (text: string) => text.includes("[IMAGE_DATA:");
 
+/**
+ * Parse an IMAGE_DATA payload into inline image data.
+ * New format (document.ts): "<mime>;base64,<b64>" — preserves the real mime type.
+ * Legacy format: "<b64>" — pure base64, assume JPEG.
+ */
+function parseImagePayload(payload: string): { data: string; mimeType: string } {
+  const m = /^([^;]+);base64,([\s\S]*)$/.exec(payload);
+  if (m) return { mimeType: m[1], data: m[2] };
+  return { mimeType: "image/jpeg", data: payload };
+}
+
 function processTextWithImages(text: string): ContentPart[] {
   const parts: ContentPart[] = [];
   const imageRegex = /\[IMAGE_DATA:([^\]]+)\]/g;
@@ -33,7 +44,7 @@ function processTextWithImages(text: string): ContentPart[] {
       const textPart = text.substring(lastIndex, match.index);
       if (textPart.trim()) parts.push({ text: textPart });
     }
-    parts.push({ inlineData: { data: match[1], mimeType: "image/jpeg" } });
+    parts.push({ inlineData: parseImagePayload(match[1]) });
     lastIndex = imageRegex.lastIndex;
   }
   if (lastIndex < text.length) {

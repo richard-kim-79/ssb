@@ -23,8 +23,13 @@ cp .env.example .env.local
 | `AI_PROVIDER` + AI 키 | 채점 엔진 선택 + 해당 키 | 아래 "AI 제공자" 참고 |
 
 **AI 제공자 선택** — `AI_PROVIDER` 값에 따라 필요한 키가 달라집니다:
-- `AI_PROVIDER=deepseek` → `DEEPSEEK_API_KEY` (DeepSeek, OpenAI 호환). **단, 텍스트 전용이라 이미지 답안 채점은 불가.**
-- `AI_PROVIDER=gemini` → `GEMINI_API_KEY` (Google AI Studio). 이미지 답안 지원.
+- `AI_PROVIDER=deepseek` → `DEEPSEEK_API_KEY` (DeepSeek, OpenAI 호환). 텍스트 채점은 저렴한 DeepSeek로.
+- `AI_PROVIDER=gemini` → `GEMINI_API_KEY` (Google AI Studio). 텍스트·이미지 모두 지원.
+
+**하이브리드 이미지 채점** — DeepSeek는 텍스트 전용이지만, 사진/손글씨 답안(`[IMAGE_DATA:...]`)이
+들어오면 자동으로 vision 가능한 제공자(`AI_VISION_PROVIDER`, 기본 `gemini`)로 넘깁니다.
+따라서 `AI_PROVIDER=deepseek`로 써도 **이미지 답안 채점을 쓰려면 `GEMINI_API_KEY`가 필요**합니다.
+(텍스트 붙여넣기 채점만 쓸 거면 `GEMINI_API_KEY` 없이도 동작합니다.)
 
 > Storage(파일 업로드), QStash(큐), Toss(결제)는 지금 단계에선 비워둬도 됩니다.
 
@@ -79,4 +84,4 @@ npm run smoke
 - **DB**: Drizzle + postgres.js, Supabase 풀드 연결(`prepare:false`, `max:1`)로 서버리스 커넥션 고갈 방지.
 - **비동기 채점**: 제출 → `enqueueGrade` → 워커(`/api/jobs/grade`). QStash 설정 시 durable 재시도, 없으면 개발용 in-process 실행.
 - **인증**: 커스텀 JWT(`jose`) HttpOnly 쿠키(`ssb_session`). 비밀번호는 bcrypt, API 키는 sha256 해시만 저장.
-- **AI**: `lib/ai/*`에서 provider-agnostic `analyzeEssay`. `AI_PROVIDER`로 Gemini/DeepSeek/Claude 전환. 플랜에 따라 flash/pro 티어링 + pro 실패 시 flash 폴백. DeepSeek는 텍스트 전용(이미지 답안은 명시적 오류).
+- **AI**: `lib/ai/*`에서 provider-agnostic `analyzeEssay`. `AI_PROVIDER`로 Gemini/DeepSeek/Claude 전환. 플랜에 따라 flash/pro 티어링 + pro 실패 시 flash 폴백. **하이브리드**: 텍스트는 base provider(예: DeepSeek), 이미지 답안은 `resolveModel(tier, {hasImages})`가 자동으로 vision provider(`AI_VISION_PROVIDER`, 기본 Gemini)로 라우팅.

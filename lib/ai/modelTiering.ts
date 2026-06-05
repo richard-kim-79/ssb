@@ -49,6 +49,20 @@ function premiumProvider(): AiProvider {
   return normalizeProvider(process.env.PREMIUM_PROVIDER) ?? baseProvider();
 }
 
+/**
+ * Vision-capable provider used for image answers when the base provider is text-only.
+ * Hybrid mode: text grading runs on the (cheaper) base provider, image answers fall
+ * over to this one. Defaults to Gemini; override with AI_VISION_PROVIDER.
+ */
+function visionProvider(): AiProvider {
+  return normalizeProvider(process.env.AI_VISION_PROVIDER) ?? "gemini";
+}
+
+/** Which providers can read inline image data. DeepSeek is text-only. */
+export function providerSupportsVision(provider: AiProvider): boolean {
+  return provider === "gemini" || provider === "claude";
+}
+
 function modelFor(provider: AiProvider, tier: ModelTier): string {
   switch (provider) {
     case "deepseek":
@@ -65,8 +79,16 @@ function modelFor(provider: AiProvider, tier: ModelTier): string {
   }
 }
 
-/** Map a tier to a concrete provider + model id (env-configurable). */
-export function resolveModel(tier: ModelTier): ResolvedModel {
+/**
+ * Map a tier to a concrete provider + model id (env-configurable).
+ * Pass `{ hasImages: true }` for image answers: if the tier's provider is text-only
+ * (e.g. DeepSeek), this transparently routes to the vision provider (hybrid mode).
+ */
+export function resolveModel(tier: ModelTier, opts?: { hasImages?: boolean }): ResolvedModel {
   const provider = tier === "pro" ? premiumProvider() : baseProvider();
+  if (opts?.hasImages && !providerSupportsVision(provider)) {
+    const vp = visionProvider();
+    return { provider: vp, modelId: modelFor(vp, tier), tier, timeoutMs: TIMEOUT_MS };
+  }
   return { provider, modelId: modelFor(provider, tier), tier, timeoutMs: TIMEOUT_MS };
 }
