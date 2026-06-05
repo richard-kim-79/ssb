@@ -27,6 +27,17 @@ export interface MeResponse {
   usage?: Usage;
 }
 
+export interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  usageCount: number;
+  lastUsedAt: string | null;
+  isActive: number;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface Session {
   id: string;
   promptContent: string;

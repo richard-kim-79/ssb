@@ -3,6 +3,7 @@
  * automatically for same-origin requests, so callers never touch auth headers.
  */
 import type {
+  ApiKey,
   AuthUser,
   MeResponse,
   Session,
@@ -65,6 +66,13 @@ export const api = {
     request<{ user: AuthUser }>("/api/auth/register", jsonInit("POST", input)),
   guest: () => request<{ user: AuthUser }>("/api/auth/guest", { method: "POST" }),
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST" }),
+
+  // --- api keys (Custom GPT 연동) ---
+  listApiKeys: () => request<{ apiKeys: ApiKey[] }>("/api/api-keys"),
+  createApiKey: (name: string) =>
+    request<{ key: string; apiKey: ApiKey }>("/api/api-keys", jsonInit("POST", { name })),
+  deleteApiKey: (id: string) =>
+    request<{ ok: true; id: string }>(`/api/api-keys/${id}`, { method: "DELETE" }),
 
   // --- sessions ---
   listSessions: () => request<{ sessions: Session[] }>("/api/sessions"),
