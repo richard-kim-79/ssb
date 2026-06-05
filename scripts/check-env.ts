@@ -79,8 +79,17 @@ for (const g of groups) {
   console.log(c.bold(g.title));
   console.log(c.dim(`  → ${g.enables}`));
   for (const v of g.vars) {
-    const present = !!process.env[v.name] && process.env[v.name] !== "";
-    const tag = present ? c.green("set    ") : v.required ? c.red("MISSING") : c.yellow("unset  ");
+    const val = process.env[v.name] ?? "";
+    // Treat leftover template placeholders as "not really set".
+    const isPlaceholder = /\[YOUR-PASSWORD\]|REPLACE_ME|<ref>|<password>|<region>/i.test(val);
+    const present = val !== "" && !isPlaceholder;
+    const tag = isPlaceholder
+      ? c.red("PLACEHLDR")
+      : present
+        ? c.green("set      ")
+        : v.required
+          ? c.red("MISSING  ")
+          : c.yellow("unset    ");
     if (!present && v.required) missingRequired += 1;
     console.log(`    ${tag}  ${v.name}`);
   }
