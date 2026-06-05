@@ -1,8 +1,8 @@
 /**
- * Image grading smoke check — grades an essay IMAGE through the hybrid vision path.
- * Proves that [IMAGE_DATA:...] answers route to a vision provider (Gemini) even when
- * AI_PROVIDER is text-only (DeepSeek), and that the base64 payload is parsed correctly.
- * Requires GEMINI_API_KEY (or whatever AI_VISION_PROVIDER points at).
+ * Image grading smoke check — grades an essay IMAGE through the multimodal path.
+ * Proves that [IMAGE_DATA:...] answers are parsed and graded by a vision-capable
+ * provider (Gemini), and that the base64 payload is decoded correctly.
+ * Requires GEMINI_API_KEY.
  *
  *   npm run check:ai:image -- /path/to/essay.png
  */

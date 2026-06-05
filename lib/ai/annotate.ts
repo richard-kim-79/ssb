@@ -7,16 +7,14 @@
  * short preceding-context hint to disambiguate duplicates. The server then anchors
  * each quote to real offsets (lib/patch/anchoring).
  *
- * Provider-agnostic over the configured providers: DeepSeek (text JSON mode) and
- * Gemini (structured output). Annotation is text-only, so it always runs on the
- * resolved base provider for the tier.
+ * Annotation runs on Gemini (structured output) regardless of tier; the tier only
+ * picks the concrete Gemini model (flash vs pro).
  */
-import type { AiProvider, ModelTier } from "./types";
-import { resolveModel } from "./modelTiering";
+import type { ModelTier } from "./types";
 import { isRetryableError, sleep, withTimeout } from "./retry";
 
 const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || 3;
-const DEEPSEEK_BASE_URL = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/$/, "");
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || Number(process.env.GEMINI_TIMEOUT_MS) || 85_000;
 
 export interface AiAnnotation {
   type: "correction" | "highlight" | "comment";
@@ -110,71 +108,6 @@ function sanitize(raw: unknown): AiAnnotation[] {
   return out;
 }
 
-function extractJson(text: string): string {
-  const start = text.indexOf("{");
-  if (start === -1) throw new Error("AI 응답에서 JSON을 찾을 수 없습니다.");
-  let depth = 0;
-  for (let i = start; i < text.length; i++) {
-    if (text[i] === "{") depth++;
-    else if (text[i] === "}") {
-      depth--;
-      if (depth === 0) return text.slice(start, i + 1);
-    }
-  }
-  throw new Error("AI JSON 응답이 올바르지 않습니다.");
-}
-
-async function annotateWithDeepSeek(req: AnnotateRequest, modelId: string, timeoutMs: number): Promise<AiAnnotation[]> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("DEEPSEEK_API_KEY is not set");
-
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [
-            { role: "system", content: systemPrompt() },
-            { role: "user", content: userPrompt(req) },
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.3,
-          max_tokens: 8192,
-          stream: false,
-        }),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error(`DeepSeek API 오류 ${res.status}: ${body.slice(0, 300)}`);
-      }
-      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      const rawJson = data.choices?.[0]?.message?.content || "";
-      if (!rawJson) throw new Error("DeepSeek로부터 응답을 받지 못했습니다.");
-      return sanitize(JSON.parse(extractJson(rawJson)));
-    } catch (error) {
-      lastError =
-        error instanceof Error && error.name === "AbortError"
-          ? new Error(`AI 응답 시간이 초과되었습니다 (timeout ${timeoutMs}ms)`)
-          : error;
-      console.error(`DeepSeek 첨삭 오류 (${modelId}, attempt ${attempt}/${MAX_RETRIES}):`, lastError);
-      if (attempt < MAX_RETRIES && isRetryableError(lastError)) {
-        await sleep(1000 * 2 ** (attempt - 1));
-        continue;
-      }
-      break;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  throw lastError instanceof Error ? lastError : new Error("첨삭 생성 중 오류가 발생했습니다.");
-}
-
 async function annotateWithGemini(req: AnnotateRequest, modelId: string, timeoutMs: number): Promise<AiAnnotation[]> {
   const { GoogleGenAI } = await import("@google/genai");
   const apiKey = process.env.GEMINI_API_KEY;
@@ -212,13 +145,16 @@ async function annotateWithGemini(req: AnnotateRequest, modelId: string, timeout
   throw lastError instanceof Error ? lastError : new Error("첨삭 생성 중 오류가 발생했습니다.");
 }
 
-/** Generate inline annotations for an essay (text-only). */
+/** Pick the Gemini model for a tier (annotation always runs on Gemini). */
+function geminiModelForTier(tier: ModelTier): string {
+  return tier === "pro"
+    ? process.env.GEMINI_PRO_MODEL || "gemini-2.5-pro"
+    : process.env.GEMINI_MODEL || "gemini-2.5-flash";
+}
+
+/** Generate inline annotations for an essay (always Gemini structured output). */
 export async function generateAnnotations(req: AnnotateRequest, tier: ModelTier): Promise<AnnotateResult> {
-  const resolved = resolveModel(tier); // text-only → base provider for the tier
-  const provider: AiProvider = resolved.provider;
-  const annotations =
-    provider === "deepseek"
-      ? await annotateWithDeepSeek(req, resolved.modelId, resolved.timeoutMs)
-      : await annotateWithGemini(req, resolved.modelId, resolved.timeoutMs);
-  return { annotations, model: resolved.modelId, tier: resolved.tier };
+  const modelId = geminiModelForTier(tier);
+  const annotations = await annotateWithGemini(req, modelId, TIMEOUT_MS);
+  return { annotations, model: modelId, tier };
 }

@@ -29,7 +29,7 @@ async function main() {
     tier,
   );
 
-  console.log(`\n✓ DeepSeek graded in ${((Date.now() - t0) / 1000).toFixed(1)}s  model=${model} tier=${used}`);
+  console.log(`\n✓ graded in ${((Date.now() - t0) / 1000).toFixed(1)}s  model=${model} tier=${used}`);
   console.log(`  score: ${result.overallScore} / ${result.maxScore}`);
   console.log(`  categories: ${result.categories.map((c) => `${c.name} ${c.score}/${c.maxScore}`).join(", ")}`);
   console.log(`  strengths: ${result.strengths.length}, improvements: ${result.improvementAreas.length}, suggestions: ${result.suggestions.length}`);
@@ -37,6 +37,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error("\n✗ DeepSeek check failed:", e instanceof Error ? e.message : e);
+  console.error("\n✗ AI check failed:", e instanceof Error ? e.message : e);
   process.exit(1);
 });

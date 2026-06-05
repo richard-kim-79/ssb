@@ -25,4 +25,4 @@ export type ContentPart = { text: string } | { inlineData: { data: string; mimeT
 
 export type ModelTier = "flash" | "pro";
 
-export type AiProvider = "gemini" | "claude" | "deepseek";
+export type AiProvider = "gemini" | "claude";

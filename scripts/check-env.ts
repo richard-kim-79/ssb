@@ -26,14 +26,7 @@ interface Group {
 
 // The required AI key depends on the selected provider (AI_PROVIDER).
 const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase();
-const aiKeyVar =
-  provider === "deepseek" ? "DEEPSEEK_API_KEY" : provider === "claude" ? "ANTHROPIC_API_KEY" : "GEMINI_API_KEY";
-
-// Hybrid image grading: a text-only base provider (DeepSeek) routes image answers
-// to a vision-capable provider (AI_VISION_PROVIDER, default gemini).
-const baseSupportsVision = provider === "gemini" || provider === "claude";
-const visionProvider = (process.env.AI_VISION_PROVIDER || "gemini").toLowerCase();
-const visionKeyVar = visionProvider === "claude" ? "ANTHROPIC_API_KEY" : "GEMINI_API_KEY";
+const aiKeyVar = provider === "claude" ? "ANTHROPIC_API_KEY" : "GEMINI_API_KEY";
 
 const groups: Group[] = [
   {
@@ -72,17 +65,6 @@ const groups: Group[] = [
       { name: "PREMIUM_PROVIDER", required: false },
     ],
   },
-  // Only relevant when the base provider is text-only (DeepSeek): image answers
-  // need a vision provider. Text grading works without this key.
-  ...(baseSupportsVision
-    ? []
-    : [
-        {
-          title: `Image grading (hybrid — base provider "${provider}" is text-only)`,
-          enables: `photo/handwritten answers routed to ${visionProvider} (text answers still use ${provider})`,
-          vars: [{ name: visionKeyVar, required: false }],
-        },
-      ]),
   {
     title: "Payments + Cron (only when wiring Toss billing)",
     enables: "Toss create-intent/confirm/billing + Vercel Cron auto-renewal",
