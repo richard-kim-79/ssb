@@ -2,7 +2,9 @@
  * Standalone seed runner: `npm run db:seed`.
  * Loads env, seeds subscription plans, exits.
  */
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env.local" });
+config({ path: ".env" });
 import { seedPlans } from "@/lib/db/seed";
 
 async function main() {
