@@ -16,7 +16,7 @@ import { ApiError } from "@/lib/http";
  */
 
 const GUEST_LIMIT = 3; // ephemeral guest accounts
-const TRIAL_LIMIT = 5; // registered user with no active paid subscription
+const TRIAL_LIMIT = 10; // registered user with no active paid subscription
 
 export interface UsageStatus {
   current: number;

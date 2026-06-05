@@ -9,11 +9,11 @@ export const SUBSCRIPTION_PLANS: InsertSubscriptionPlan[] = [
   {
     id: "trial",
     name: "무료 체험",
-    description: "3편의 무료 첨삭으로 서비스를 체험해보세요",
+    description: "10편의 무료 첨삭으로 서비스를 체험해보세요",
     price: 0,
     currency: "KRW",
     billingPeriod: "monthly",
-    maxEssaysPerMonth: 3,
+    maxEssaysPerMonth: 10,
     maxUsers: 1,
     features: ["기본 첨삭", "점수 분석", "1개월 히스토리"],
     isActive: 1,
