@@ -15,6 +15,7 @@
     "db:setup": "drizzle-kit push && tsx scripts/seed.ts",
     "check:env": "tsx scripts/check-env.ts",
     "check:ai": "tsx scripts/check-ai.ts",
+    "check:ai:image": "tsx scripts/check-ai-image.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
