@@ -1,7 +1,8 @@
-import type { EssayAnalysisRequest, EssayAnalysisResponse, ModelTier } from "./types";
+import type { AiProvider, EssayAnalysisRequest, EssayAnalysisResponse, ModelTier } from "./types";
 import { resolveModel, resolveTier } from "./modelTiering";
 import { analyzeWithGemini } from "./gemini";
 import { analyzeWithClaude } from "./claude";
+import { analyzeWithDeepSeek } from "./deepseek";
 
 export interface AnalyzeResult {
   result: EssayAnalysisResponse;
@@ -11,13 +12,18 @@ export interface AnalyzeResult {
 
 async function callProvider(
   request: EssayAnalysisRequest,
-  provider: "gemini" | "claude",
+  provider: AiProvider,
   modelId: string,
   timeoutMs: number,
 ): Promise<EssayAnalysisResponse> {
-  return provider === "claude"
-    ? analyzeWithClaude(request, modelId, timeoutMs)
-    : analyzeWithGemini(request, modelId, timeoutMs);
+  switch (provider) {
+    case "claude":
+      return analyzeWithClaude(request, modelId, timeoutMs);
+    case "deepseek":
+      return analyzeWithDeepSeek(request, modelId, timeoutMs);
+    default:
+      return analyzeWithGemini(request, modelId, timeoutMs);
+  }
 }
 
 /**

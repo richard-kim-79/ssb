@@ -103,6 +103,34 @@ export function buildUserPrompt(request: EssayAnalysisRequest): { parts: Content
   return { parts, hasImages: true };
 }
 
+/** Does any part of the request carry inline image data? (text-only providers can't handle these.) */
+export function requestHasImages(request: EssayAnalysisRequest): boolean {
+  return hasImageData(request.promptText) || hasImageData(request.criteriaText) || hasImageData(request.essayText);
+}
+
+/** Build a single plain-text user prompt (for text-only providers like DeepSeek). */
+export function buildUserText(request: EssayAnalysisRequest): string {
+  const { promptText, criteriaText, essayText, studentInfo } = request;
+  let t = `논술 문제와 평가 기준에 따라 다음 학생 답안을 분석해주세요.\n\n`;
+  if (studentInfo && (studentInfo.name || studentInfo.studentId)) {
+    t += `학생 정보:\n`;
+    if (studentInfo.name) t += `- 이름: ${studentInfo.name}\n`;
+    if (studentInfo.studentId) t += `- 학번: ${studentInfo.studentId}\n`;
+    t += `\n`;
+  }
+  t += `논술 문제:\n${promptText}\n\n`;
+  t += `평가 기준:\n${criteriaText}\n\n`;
+  t += `학생 답안:\n${essayText}\n\n`;
+  t += buildInstructions();
+  return t;
+}
+
+/** JSON-only output instruction for providers without a native response schema. */
+export const JSON_INSTRUCTION =
+  '\n\n반드시 아래 키를 가진 단일 JSON 객체로만 응답하세요(설명·코드블록 금지): ' +
+  '{"overallScore": number, "maxScore": number, "categories": [{"name": string, "score": number, "maxScore": number, "feedback": string}], ' +
+  '"strengths": string[], "improvementAreas": string[], "detailedFeedback": string, "suggestions": string[]}';
+
 export function validateAnalysisResponse(response: EssayAnalysisResponse): void {
   const required: (keyof EssayAnalysisResponse)[] = [
     "overallScore",

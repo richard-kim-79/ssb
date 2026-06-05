@@ -1,5 +1,6 @@
 import type { ContentPart, EssayAnalysisRequest, EssayAnalysisResponse } from "./types";
-import { buildSystemPrompt, buildUserPrompt, validateAnalysisResponse } from "./prompts";
+import { buildSystemPrompt, buildUserPrompt, validateAnalysisResponse, JSON_INSTRUCTION } from "./prompts";
+import { withTimeout } from "./retry";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
@@ -29,21 +30,6 @@ function extractJson(text: string): string {
   }
   throw new Error("Claude JSON 응답이 올바르지 않습니다.");
 }
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`AI 응답 시간이 초과되었습니다 (timeout ${ms}ms)`)), ms);
-    promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); },
-    );
-  });
-}
-
-const JSON_INSTRUCTION =
-  '\n\n반드시 아래 키를 가진 단일 JSON 객체로만 응답하세요(설명·코드블록 금지): ' +
-  '{"overallScore": number, "maxScore": number, "categories": [{"name": string, "score": number, "maxScore": number, "feedback": string}], ' +
-  '"strengths": string[], "improvementAreas": string[], "detailedFeedback": string, "suggestions": string[]}';
 
 /** Analyze an essay with Anthropic Claude (premium tier, via fetch — no SDK dependency). */
 export async function analyzeWithClaude(

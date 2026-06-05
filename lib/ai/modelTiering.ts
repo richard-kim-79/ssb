@@ -1,4 +1,4 @@
-import type { ModelTier } from "./types";
+import type { AiProvider, ModelTier } from "./types";
 
 /** Single source of truth: which model tier each plan gets. */
 export const PLAN_TIER: Record<string, ModelTier> = {
@@ -16,37 +16,57 @@ export function resolveTier(planId: string | null | undefined): ModelTier {
 }
 
 export interface ResolvedModel {
-  provider: "gemini" | "claude";
+  provider: AiProvider;
   modelId: string;
   tier: ModelTier;
   timeoutMs: number;
 }
 
-const TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 85_000;
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || Number(process.env.GEMINI_TIMEOUT_MS) || 85_000;
+
+function normalizeProvider(value: string | undefined): AiProvider | null {
+  switch ((value || "").toLowerCase()) {
+    case "deepseek":
+      return "deepseek";
+    case "claude":
+    case "anthropic":
+      return "claude";
+    case "gemini":
+    case "google":
+      return "gemini";
+    default:
+      return null;
+  }
+}
+
+/** Base provider for the default (flash) tier. Set AI_PROVIDER=deepseek to switch off Gemini. */
+function baseProvider(): AiProvider {
+  return normalizeProvider(process.env.AI_PROVIDER) ?? "gemini";
+}
+
+/** Premium (pro) tier provider; defaults to PREMIUM_PROVIDER, else the base provider. */
+function premiumProvider(): AiProvider {
+  return normalizeProvider(process.env.PREMIUM_PROVIDER) ?? baseProvider();
+}
+
+function modelFor(provider: AiProvider, tier: ModelTier): string {
+  switch (provider) {
+    case "deepseek":
+      // deepseek-chat (V3) supports JSON mode; deepseek-reasoner (R1) does not, so default both to chat.
+      return tier === "pro"
+        ? process.env.DEEPSEEK_PRO_MODEL || process.env.DEEPSEEK_MODEL || "deepseek-chat"
+        : process.env.DEEPSEEK_MODEL || "deepseek-chat";
+    case "claude":
+      return process.env.CLAUDE_MODEL || "claude-3-5-sonnet-latest";
+    default:
+      return tier === "pro"
+        ? process.env.GEMINI_PRO_MODEL || "gemini-2.5-pro"
+        : process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  }
+}
 
 /** Map a tier to a concrete provider + model id (env-configurable). */
 export function resolveModel(tier: ModelTier): ResolvedModel {
-  if (tier === "pro") {
-    const provider = process.env.PREMIUM_PROVIDER === "claude" ? "claude" : "gemini";
-    if (provider === "claude") {
-      return {
-        provider: "claude",
-        modelId: process.env.CLAUDE_MODEL || "claude-3-5-sonnet-latest",
-        tier,
-        timeoutMs: TIMEOUT_MS,
-      };
-    }
-    return {
-      provider: "gemini",
-      modelId: process.env.GEMINI_PRO_MODEL || "gemini-2.5-pro",
-      tier,
-      timeoutMs: TIMEOUT_MS,
-    };
-  }
-  return {
-    provider: "gemini",
-    modelId: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-    tier,
-    timeoutMs: TIMEOUT_MS,
-  };
+  const provider = tier === "pro" ? premiumProvider() : baseProvider();
+  return { provider, modelId: modelFor(provider, tier), tier, timeoutMs: TIMEOUT_MS };
 }

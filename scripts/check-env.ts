@@ -24,15 +24,20 @@ interface Group {
   vars: { name: string; required: boolean }[];
 }
 
+// The required AI key depends on the selected provider (AI_PROVIDER).
+const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+const aiKeyVar =
+  provider === "deepseek" ? "DEEPSEEK_API_KEY" : provider === "claude" ? "ANTHROPIC_API_KEY" : "GEMINI_API_KEY";
+
 const groups: Group[] = [
   {
     title: "Core (required for local end-to-end verification)",
-    enables: "register/login, sessions, submit, AI grading via dev fallback",
+    enables: `register/login, sessions, submit, AI grading (provider: ${provider})`,
     vars: [
       { name: "DATABASE_URL", required: true },
       { name: "DIRECT_DATABASE_URL", required: true },
       { name: "AUTH_SECRET", required: true },
-      { name: "GEMINI_API_KEY", required: true },
+      { name: aiKeyVar, required: true },
     ],
   },
   {

@@ -1,28 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import type { EssayAnalysisRequest, EssayAnalysisResponse } from "./types";
 import { ANALYSIS_JSON_SCHEMA, buildSystemPrompt, buildUserPrompt, validateAnalysisResponse } from "./prompts";
+import { isRetryableError, sleep, withTimeout } from "./retry";
 
-const MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES) || 3;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function isRetryableError(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error);
-  return (
-    /timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|fetch failed|network/i.test(msg) ||
-    /\b429\b|quota|rate.?limit|overloaded|unavailable|\b50[0-4]\b/i.test(msg)
-  );
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`AI 응답 시간이 초과되었습니다 (timeout ${ms}ms)`)), ms);
-    promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      (err) => { clearTimeout(timer); reject(err); },
-    );
-  });
-}
+const MAX_RETRIES = Number(process.env.AI_MAX_RETRIES) || Number(process.env.GEMINI_MAX_RETRIES) || 3;
 
 let _client: GoogleGenAI | null = null;
 function getClient(): GoogleGenAI {

@@ -20,14 +20,19 @@ cp .env.example .env.local
 | `DATABASE_URL` | 앱이 쓰는 풀드 연결 (포트 6543) | Supabase → Project Settings → Database → Connection pooling |
 | `DIRECT_DATABASE_URL` | 마이그레이션용 직접 연결 (포트 5432) | 같은 화면의 Direct connection |
 | `AUTH_SECRET` | 세션 쿠키 서명용 임의 문자열 | `openssl rand -hex 32` 로 직접 생성 |
-| `GEMINI_API_KEY` | 채점 AI 키 | Google AI Studio |
+| `AI_PROVIDER` + AI 키 | 채점 엔진 선택 + 해당 키 | 아래 "AI 제공자" 참고 |
+
+**AI 제공자 선택** — `AI_PROVIDER` 값에 따라 필요한 키가 달라집니다:
+- `AI_PROVIDER=deepseek` → `DEEPSEEK_API_KEY` (DeepSeek, OpenAI 호환). **단, 텍스트 전용이라 이미지 답안 채점은 불가.**
+- `AI_PROVIDER=gemini` → `GEMINI_API_KEY` (Google AI Studio). 이미지 답안 지원.
 
 > Storage(파일 업로드), QStash(큐), Toss(결제)는 지금 단계에선 비워둬도 됩니다.
 
 설정이 잘 됐는지 한눈에 확인:
 
 ```bash
-npm run check:env
+npm run check:env    # 환경변수 점검 (선택한 provider의 키까지 확인)
+npm run check:ai     # DB 없이 AI 채점만 단독 검증
 ```
 
 ### 2. DB 스키마 + 기본 플랜 시드
@@ -65,6 +70,7 @@ npm run smoke
 | `npm run db:seed` | 구독 플랜 시드 |
 | `npm run db:studio` | Drizzle Studio (DB 탐색) |
 | `npm run check:env` | 환경변수 점검 |
+| `npm run check:ai` | AI 채점만 단독 검증 (DB 불필요) |
 | `npm run smoke` | 백엔드 엔드투엔드 검증 |
 
 ## 아키텍처 메모
@@ -73,4 +79,4 @@ npm run smoke
 - **DB**: Drizzle + postgres.js, Supabase 풀드 연결(`prepare:false`, `max:1`)로 서버리스 커넥션 고갈 방지.
 - **비동기 채점**: 제출 → `enqueueGrade` → 워커(`/api/jobs/grade`). QStash 설정 시 durable 재시도, 없으면 개발용 in-process 실행.
 - **인증**: 커스텀 JWT(`jose`) HttpOnly 쿠키(`ssb_session`). 비밀번호는 bcrypt, API 키는 sha256 해시만 저장.
-- **AI**: `lib/ai/*`에서 provider-agnostic `analyzeEssay`. 플랜에 따라 Flash/Pro 티어링 + 폴백.
+- **AI**: `lib/ai/*`에서 provider-agnostic `analyzeEssay`. `AI_PROVIDER`로 Gemini/DeepSeek/Claude 전환. 플랜에 따라 flash/pro 티어링 + pro 실패 시 flash 폴백. DeepSeek는 텍스트 전용(이미지 답안은 명시적 오류).
