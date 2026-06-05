@@ -2,23 +2,30 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/client/api";
 import type { AuthUser } from "@/lib/client/types";
 import { Button } from "@/components/ui";
 
 export function SiteHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Re-check auth on every navigation so the header reflects login/logout
+  // performed via client-side routing (router.push from the auth pages).
   useEffect(() => {
+    let alive = true;
     api
       .me()
-      .then((r) => setUser(r.user))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((r) => alive && setUser(r.user))
+      .catch(() => alive && setUser(null))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
 
   async function handleLogout() {
     await api.logout().catch(() => {});
