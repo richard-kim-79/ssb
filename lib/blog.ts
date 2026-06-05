@@ -10,6 +10,14 @@ import {
 
 export type BlogCategory = BlogPost["category"];
 
+/** Korean display labels for blog categories. */
+export const BLOG_CATEGORY_LABELS: Record<string, string> = {
+  "essay-tips": "논술 팁",
+  "admission-info": "입시 정보",
+  "platform-guide": "사용 가이드",
+  "education-news": "교육 소식",
+};
+
 interface ListFilters {
   category?: string;
   publishedOnly?: boolean;

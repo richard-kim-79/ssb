@@ -44,7 +44,17 @@ export function SiteHeader() {
           써봄
         </Link>
 
-        <nav className="flex items-center gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2">
+          <Link href="/plans" className="hidden sm:block">
+            <Button variant="ghost" size="sm">
+              요금제
+            </Button>
+          </Link>
+          <Link href="/blog" className="hidden sm:block">
+            <Button variant="ghost" size="sm">
+              블로그
+            </Button>
+          </Link>
           {loading ? (
             <div className="h-8 w-20 animate-pulse rounded-lg bg-slate-100" />
           ) : user ? (

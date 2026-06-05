@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 
 const STEPS = [
-  { n: "1", title: "문제 + 채점 기준 등록", desc: "논술 문제와 평가 기준을 붙여넣거나 파일로 올립니다." },
-  { n: "2", title: "학생 답안 제출", desc: "텍스트로 붙여넣거나 docx·pdf·사진(손글씨)으로 올립니다." },
+  { n: "1", title: "문제 + 채점 기준 등록", desc: "논술 문제와 평가 기준을 txt·docx·pdf·이미지 파일로 올립니다." },
+  { n: "2", title: "학생 답안 제출", desc: "txt·docx·pdf·사진(손글씨) 파일로 답안을 올립니다." },
   { n: "3", title: "AI 채점 + 첨삭", desc: "총점·영역별 점수·강점·개선점·상세 피드백을 받아봅니다." },
 ];
 
@@ -82,6 +82,23 @@ export default function Home() {
       </section>
 
       <footer className="no-print border-t border-slate-200 py-8 text-center text-sm text-slate-400">
+        <nav className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+          <Link href="/plans" className="hover:text-slate-600">
+            요금제
+          </Link>
+          <Link href="/blog" className="hover:text-slate-600">
+            블로그
+          </Link>
+          <Link href="/gpt-guide" className="hover:text-slate-600">
+            GPT 연동
+          </Link>
+          <Link href="/privacy" className="hover:text-slate-600">
+            개인정보처리방침
+          </Link>
+          <Link href="/terms" className="hover:text-slate-600">
+            이용약관
+          </Link>
+        </nav>
         © {new Date().getFullYear()} 써봄 · 한국어 AI 논술 첨삭·채점
       </footer>
     </main>
