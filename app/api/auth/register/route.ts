@@ -2,6 +2,7 @@ import { z } from "zod";
 import { handle, json, ApiError } from "@/lib/http";
 import { createUser, sanitizeUser } from "@/lib/auth/users";
 import { setSessionCookie } from "@/lib/auth/session";
+import { createTrialSubscription } from "@/lib/subscriptions";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,14 @@ export const POST = handle(async (req: Request) => {
   }
 
   const user = await createUser(parsed.data);
+
+  // Give new users a trial subscription (best-effort; never blocks signup).
+  try {
+    await createTrialSubscription(user.id);
+  } catch (err) {
+    console.error("[register] trial subscription failed:", err);
+  }
+
   await setSessionCookie({ userId: user.id, isGuest: false, isAdmin: user.isAdmin === 1 });
 
   return json({ user: sanitizeUser(user) }, { status: 201 });
