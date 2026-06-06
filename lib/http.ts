@@ -4,10 +4,13 @@ import { NextResponse } from "next/server";
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(status: number, message: string, code?: string) {
+  /** Extra fields merged into the JSON error body (e.g. resetAt, upgradeRequired). */
+  details?: Record<string, unknown>;
+  constructor(status: number, message: string, code?: string, details?: Record<string, unknown>) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
     this.name = "ApiError";
   }
 }
@@ -18,7 +21,10 @@ export function json<T>(data: T, init?: ResponseInit) {
 
 export function errorResponse(err: unknown) {
   if (err instanceof ApiError) {
-    return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    return NextResponse.json(
+      { error: err.message, code: err.code, ...err.details },
+      { status: err.status },
+    );
   }
   console.error("[api] unhandled error:", err);
   const message = err instanceof Error ? err.message : "Internal Server Error";

@@ -8,6 +8,7 @@ import { assertUnderUsageLimit } from "@/lib/usage/limits";
 import { cleanText, validateContent } from "@/lib/parsing/document";
 import { processUploads, filesFromForm } from "@/lib/parsing/uploads";
 import { enqueueGrade } from "@/lib/queue/enqueue";
+import { enforceAbuseGuard, trackAbuseSuccess } from "@/lib/abuse/guard";
 
 export const runtime = "nodejs";
 // 사진·PDF 답안은 업로드 시 멀티모달 AI로 전사(OCR)하므로 시간이 더 걸릴 수 있다.
@@ -70,6 +71,15 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
   // Gate on usage BEFORE inserting the row (the row is the usage counter).
   await assertUnderUsageLimit(user);
 
+  // Device/IP abuse guard. No-op for registered users (gated by usage limits);
+  // for guests it caps farming across throwaway accounts on one device/IP.
+  const abuseCtx = await enforceAbuseGuard(req, {
+    action: "essay_submission",
+    ipLimitPerDay: 30,
+    deviceLimitPerDay: 5,
+    user,
+  });
+
   const submissionId = randomUUID();
   const input = await readInput(req, submissionId);
 
@@ -98,6 +108,8 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
     .returning();
 
   await enqueueGrade(submissionId);
+
+  await trackAbuseSuccess(abuseCtx, "essay_submission");
 
   return json({ submission }, { status: 202 });
 });
