@@ -26,14 +26,18 @@ function getClient() {
     idle_timeout: 20,
     connect_timeout: 15,
   });
-  if (process.env.NODE_ENV !== "production") globalForDb._pgClient = client;
+  // Cache on globalThis in ALL environments. On serverless (Vercel), a warm
+  // instance reuses this connection across invocations — without it every
+  // request pays a fresh TCP+TLS handshake to the pooler (~1.5-2s). In dev it
+  // also survives hot-reload, preventing connection leaks.
+  globalForDb._pgClient = client;
   return client;
 }
 
 export function getDb(): Db {
   if (globalForDb._drizzleDb) return globalForDb._drizzleDb;
   const dbInstance = drizzle(getClient(), { schema });
-  if (process.env.NODE_ENV !== "production") globalForDb._drizzleDb = dbInstance;
+  globalForDb._drizzleDb = dbInstance;
   return dbInstance;
 }
 
