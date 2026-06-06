@@ -152,6 +152,9 @@ export default function MyWorkPage() {
   const remaining = usage?.remaining ?? 0;
   const limit = usage?.limit ?? 0;
   const used = usage?.current ?? 0;
+  const unlimited = limit >= 999999;
+  // 등록 사용자인데 활성 구독(체험 포함)이 없음 = 무료 체험 종료/미가입
+  const trialEnded = !isGuest && usage != null && usage.planId == null;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-8 px-4 py-10">
@@ -165,22 +168,37 @@ export default function MyWorkPage() {
         <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
             <div className="text-sm text-slate-500">현재 플랜</div>
-            <div className="text-lg font-semibold text-slate-900">{planLabel(usage.planId, isGuest)}</div>
+            <div className="text-lg font-semibold text-slate-900">
+              {trialEnded ? "체험 종료" : planLabel(usage.planId, isGuest)}
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-slate-500">남은 채점 횟수</div>
+            <div className="text-sm text-slate-500">{unlimited ? "이번 달 채점" : "남은 채점 횟수"}</div>
             <div className="text-lg font-semibold text-slate-900">
-              <span className={remaining === 0 ? "text-red-600" : "text-indigo-600"}>{remaining}</span>
-              <span className="text-slate-400"> / {limit}</span>
+              {unlimited ? (
+                <span className="text-indigo-600">무제한</span>
+              ) : (
+                <>
+                  <span className={remaining === 0 ? "text-red-600" : "text-indigo-600"}>{remaining}</span>
+                  <span className="text-slate-400"> / {limit}</span>
+                </>
+              )}
             </div>
           </div>
         </Card>
       )}
 
-      {remaining === 0 && (
+      {trialEnded ? (
         <Alert tone="info">
-          이번 기간 채점 횟수({limit}회, 사용 {used}회)를 모두 사용했습니다. 더 채점하려면 플랜을 업그레이드하세요.
+          무료 체험(가입 후 30일)이 종료되었습니다. 계속 이용하려면 아래에서 플랜을 구독해주세요.
         </Alert>
+      ) : (
+        !unlimited &&
+        remaining === 0 && (
+          <Alert tone="info">
+            이번 기간 채점 횟수({limit}회, 사용 {used}회)를 모두 사용했습니다. 더 채점하려면 플랜을 업그레이드하세요.
+          </Alert>
+        )
       )}
 
       {/* Subscription / billing */}

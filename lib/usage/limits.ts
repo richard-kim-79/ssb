@@ -16,7 +16,6 @@ import { ApiError } from "@/lib/http";
  */
 
 const GUEST_LIMIT = 3; // ephemeral guest accounts
-const TRIAL_LIMIT = 10; // registered user with no active paid subscription
 
 export interface UsageStatus {
   current: number;
@@ -37,14 +36,16 @@ export async function getUsageStatus(user: User): Promise<UsageStatus> {
   if (isGuest) {
     limit = GUEST_LIMIT;
   } else if (planId) {
+    // 활성 구독(체험 포함). 한도는 해당 플랜값을 따른다(체험 = 무제한).
     const [plan] = await db
       .select({ max: subscriptionPlansTable.maxEssaysPerMonth })
       .from(subscriptionPlansTable)
       .where(eq(subscriptionPlansTable.id, planId))
       .limit(1);
-    limit = plan?.max ?? TRIAL_LIMIT;
+    limit = plan?.max ?? 0;
   } else {
-    limit = TRIAL_LIMIT;
+    // 등록 사용자지만 활성 구독이 없음 = 무료 체험 종료/미가입 → 구독 필요(차단).
+    limit = 0;
   }
 
   // Guests: count all-time (the account itself is short-lived).
@@ -64,6 +65,20 @@ export async function getUsageStatus(user: User): Promise<UsageStatus> {
 export async function assertUnderUsageLimit(user: User): Promise<UsageStatus> {
   const status = await getUsageStatus(user);
   if (status.current >= status.limit) {
+    if (user.isGuest === 1) {
+      throw new ApiError(
+        429,
+        `게스트는 최대 ${status.limit}회까지 체험할 수 있습니다. 회원가입하면 한 달간 무료로 이용할 수 있어요`,
+        "guest_limit_exceeded",
+      );
+    }
+    if (!status.planId) {
+      throw new ApiError(
+        429,
+        "무료 체험이 종료되었습니다. 계속 이용하려면 플랜을 구독해주세요",
+        "trial_ended",
+      );
+    }
     throw new ApiError(
       429,
       `이번 기간에 사용 가능한 첨삭 횟수(${status.limit}회)를 모두 사용했습니다`,

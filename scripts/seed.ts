@@ -8,12 +8,8 @@ config({ path: ".env" });
 import { seedPlans } from "@/lib/db/seed";
 
 async function main() {
-  const { inserted } = await seedPlans();
-  if (inserted > 0) {
-    console.log(`✅ ${inserted}개의 구독 플랜을 시드했습니다`);
-  } else {
-    console.log("✅ 구독 플랜이 이미 존재합니다 (시드 건너뜀)");
-  }
+  const { upserted } = await seedPlans();
+  console.log(`✅ ${upserted}개의 구독 플랜을 동기화했습니다 (upsert)`);
   process.exit(0);
 }
 

@@ -1,21 +1,23 @@
+import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { subscriptionPlansTable, type InsertSubscriptionPlan } from "@/lib/db/schema";
 
 /**
  * Canonical subscription plans (ported from the original app).
- * Idempotent: `seedPlans()` skips insert if any plan already exists.
+ * `seedPlans()` upserts by id, so re-running it syncs price/limit/copy changes
+ * onto already-seeded rows (not just first-time inserts).
  */
 export const SUBSCRIPTION_PLANS: InsertSubscriptionPlan[] = [
   {
     id: "trial",
     name: "무료 체험",
-    description: "10편의 무료 첨삭으로 서비스를 체험해보세요",
+    description: "가입 후 30일 동안 무제한으로 무료 체험해보세요",
     price: 0,
     currency: "KRW",
     billingPeriod: "monthly",
-    maxEssaysPerMonth: 10,
+    maxEssaysPerMonth: 999999,
     maxUsers: 1,
-    features: ["기본 첨삭", "점수 분석", "1개월 히스토리"],
+    features: ["30일 무제한 첨삭", "기본 첨삭 (Flash)", "점수 분석", "1개월 히스토리"],
     isActive: 1,
   },
   {
@@ -80,11 +82,23 @@ export const SUBSCRIPTION_PLANS: InsertSubscriptionPlan[] = [
   },
 ];
 
-export async function seedPlans(): Promise<{ inserted: number }> {
-  const existing = await db.select({ id: subscriptionPlansTable.id }).from(subscriptionPlansTable).limit(1);
-  if (existing.length > 0) {
-    return { inserted: 0 };
-  }
-  await db.insert(subscriptionPlansTable).values(SUBSCRIPTION_PLANS);
-  return { inserted: SUBSCRIPTION_PLANS.length };
+export async function seedPlans(): Promise<{ upserted: number }> {
+  await db
+    .insert(subscriptionPlansTable)
+    .values(SUBSCRIPTION_PLANS)
+    .onConflictDoUpdate({
+      target: subscriptionPlansTable.id,
+      set: {
+        name: sql`excluded.name`,
+        description: sql`excluded.description`,
+        price: sql`excluded.price`,
+        currency: sql`excluded.currency`,
+        billingPeriod: sql`excluded.billing_period`,
+        maxEssaysPerMonth: sql`excluded.max_essays_per_month`,
+        maxUsers: sql`excluded.max_users`,
+        features: sql`excluded.features`,
+        isActive: sql`excluded.is_active`,
+      },
+    });
+  return { upserted: SUBSCRIPTION_PLANS.length };
 }
