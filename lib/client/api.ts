@@ -17,6 +17,10 @@ import type {
   BlogPost,
   BlogPostInput,
   AdminUser,
+  Plan,
+  SubscriptionResponse,
+  CreateIntentResponse,
+  BillingAuthResponse,
 } from "./types";
 
 export class ApiError extends Error {
@@ -128,6 +132,31 @@ export const api = {
       `/api/submissions/${submissionId}/patch/revisions`,
       jsonInit("POST", { content, parentRevisionId: parentRevisionId ?? null }),
     ),
+
+  // --- payments / subscription ---
+  getPlans: () => request<{ plans: Plan[] }>("/api/plans"),
+  getSubscription: () => request<SubscriptionResponse>("/api/subscription"),
+  /** One-time checkout: create a server-trusted payment intent. */
+  createIntent: (planId: string) =>
+    request<CreateIntentResponse>("/api/payments/create-intent", jsonInit("POST", { planId })),
+  /** One-time checkout: confirm after the Toss popup returns. */
+  confirmPayment: (paymentKey: string, orderId: string) =>
+    request<{ success: true; message: string }>(
+      "/api/payments/toss-confirm",
+      jsonInit("POST", { paymentKey, orderId }),
+    ),
+  /** Recurring billing: start the billing-auth flow (returns a customerKey). */
+  billingAuth: (planId: string) =>
+    request<BillingAuthResponse>("/api/payments/billing-auth", jsonInit("POST", { planId })),
+  /** Recurring billing: exchange the authKey for a billing key + first charge. */
+  issueBillingKey: (authKey: string, customerKey: string, planId: string) =>
+    request<{ success: true; message: string }>(
+      "/api/payments/issue-billing-key",
+      jsonInit("POST", { authKey, customerKey, planId }),
+    ),
+  /** Recurring billing: cancel auto-renewal (keep access until period end). */
+  cancelBilling: () =>
+    request<{ success: true; message: string }>("/api/payments/cancel-billing", { method: "POST" }),
 
   // --- admin: blog ---
   adminListPosts: () => request<{ posts: BlogPost[] }>("/api/admin/blog/posts"),

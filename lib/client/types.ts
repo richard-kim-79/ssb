@@ -200,6 +200,66 @@ export interface RevisionWithResult {
   result: AnalysisResult | null;
 }
 
+// --- Payments / subscription ---
+
+export interface Plan {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  billingPeriod: "monthly" | "yearly";
+  maxEssaysPerMonth: number;
+  features: string[];
+  isActive: number;
+}
+
+export type SubscriptionStatusValue = "active" | "canceled" | "expired" | "trial";
+
+export interface SubscriptionInfo {
+  id: string;
+  planId: string;
+  status: SubscriptionStatusValue;
+  paymentMethod: "toss_billing" | "toss_onetime" | null;
+  autoRenew: number;
+  startDate: string;
+  endDate: string;
+  renewsAt: string | null;
+  canceledAt: string | null;
+  trialEndsAt: string | null;
+}
+
+export interface SubscriptionResponse {
+  subscription: SubscriptionInfo | null;
+  plan: Plan | null;
+  usage: Usage;
+}
+
+export interface CreateIntentResponse {
+  intentId: string;
+  orderId: string;
+  planId: string;
+  planName: string;
+  orderName: string;
+  amount: number;
+  billingPeriod: "monthly" | "yearly";
+  clientKey: string;
+  customerKey: string;
+  customerEmail: string;
+  customerName: string;
+}
+
+export interface BillingAuthResponse {
+  customerKey: string;
+  planId: string;
+  planName: string;
+  price: number;
+  billingPeriod: "monthly" | "yearly";
+  clientKey: string;
+  customerEmail: string;
+  customerName: string;
+}
+
 export interface NewAnnotationInput {
   type: AnnotationType;
   quotedText: string;

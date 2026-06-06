@@ -140,7 +140,10 @@ export default async function PlansPage() {
                 ))}
               </ul>
 
-              <Link href="/register" className="mt-6">
+              <Link
+                href={tier.id === "trial" ? "/register" : `/checkout?plan=${tier.id}`}
+                className="mt-6"
+              >
                 <Button variant={tier.highlight ? "primary" : "secondary"} className="w-full">
                   {tier.cta}
                 </Button>

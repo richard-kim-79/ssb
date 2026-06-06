@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
-import type { Session, Usage } from "@/lib/client/types";
+import type { Session, Usage, SubscriptionInfo } from "@/lib/client/types";
 import { Alert, Button, Card, Field, Spinner } from "@/components/ui";
 
 // 플랜 표시 이름 (스키마를 클라이언트로 import하지 않기 위해 인라인)
@@ -46,6 +46,9 @@ export default function MyWorkPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const [billingMsg, setBillingMsg] = useState<string | null>(null);
 
   // create-session form state
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +71,13 @@ export default function MyWorkPage() {
         const { sessions } = await api.listSessions();
         if (!alive) return;
         setSessions(sessions);
+        // 구독 정보는 부가 정보 — 실패해도 페이지는 계속 동작
+        try {
+          const sub = await api.getSubscription();
+          if (alive) setSubscription(sub.subscription);
+        } catch {
+          /* 구독 정보 없음/조회 실패는 무시 */
+        }
       } catch {
         if (alive) router.replace("/login");
       } finally {
@@ -105,6 +115,29 @@ export default function MyWorkPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "세션 생성에 실패했습니다");
       setCreating(false);
+    }
+  }
+
+  async function cancelBilling() {
+    if (!window.confirm("정기결제를 해지하시겠어요? 남은 기간까지는 계속 이용할 수 있습니다.")) {
+      return;
+    }
+    setCanceling(true);
+    setBillingMsg(null);
+    try {
+      const res = await api.cancelBilling();
+      setBillingMsg(res.message || "정기결제가 해지되었습니다.");
+      // 최신 구독 상태로 갱신
+      try {
+        const sub = await api.getSubscription();
+        setSubscription(sub.subscription);
+      } catch {
+        /* 갱신 실패는 무시 */
+      }
+    } catch (err) {
+      setBillingMsg(err instanceof ApiError ? err.message : "정기결제 해지에 실패했습니다.");
+    } finally {
+      setCanceling(false);
     }
   }
 
@@ -148,6 +181,66 @@ export default function MyWorkPage() {
         <Alert tone="info">
           이번 기간 채점 횟수({limit}회, 사용 {used}회)를 모두 사용했습니다. 더 채점하려면 플랜을 업그레이드하세요.
         </Alert>
+      )}
+
+      {/* Subscription / billing */}
+      {subscription ? (
+        <Card className="flex flex-col gap-3 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm text-slate-500">구독 상태</div>
+              <div className="text-lg font-semibold text-slate-900">
+                {planLabel(subscription.planId, isGuest)}
+                <span className="ml-2 text-sm font-normal text-slate-500">
+                  {subscription.autoRenew === 1 && subscription.status === "active"
+                    ? "· 매월 자동결제"
+                    : subscription.status === "canceled"
+                      ? "· 해지 예약됨"
+                      : ""}
+                </span>
+              </div>
+            </div>
+            {subscription.autoRenew === 1 && subscription.status === "active" ? (
+              <Button variant="secondary" onClick={cancelBilling} disabled={canceling}>
+                {canceling ? <Spinner className="h-4 w-4" /> : "정기결제 해지"}
+              </Button>
+            ) : (
+              <Link href="/plans">
+                <Button variant="secondary">플랜 변경</Button>
+              </Link>
+            )}
+          </div>
+
+          {subscription.autoRenew === 1 && subscription.renewsAt && (
+            <p className="text-sm text-slate-500">
+              다음 결제일: {formatDate(subscription.renewsAt)}
+            </p>
+          )}
+          {subscription.status === "canceled" && (
+            <p className="text-sm text-slate-500">
+              {formatDate(subscription.endDate)}까지 이용할 수 있습니다.
+            </p>
+          )}
+          {billingMsg && (
+            <div className="mt-1">
+              <Alert tone="info">{billingMsg}</Alert>
+            </div>
+          )}
+        </Card>
+      ) : (
+        !isGuest && (
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div>
+              <div className="text-sm text-slate-500">정기결제</div>
+              <div className="text-base font-medium text-slate-800">
+                매월 자동결제로 더 많이 채점하세요
+              </div>
+            </div>
+            <Link href="/plans">
+              <Button>요금제 보기</Button>
+            </Link>
+          </Card>
+        )
       )}
 
       {/* Create session */}
