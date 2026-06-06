@@ -59,6 +59,13 @@ export function SiteHeader() {
             <div className="h-8 w-20 animate-pulse rounded-lg bg-slate-100" />
           ) : user ? (
             <>
+              {user.isAdmin === 1 && (
+                <Link href="/admin" className="hidden sm:block">
+                  <Button variant="ghost" size="sm">
+                    관리자
+                  </Button>
+                </Link>
+              )}
               <Link href="/my-work">
                 <Button variant="ghost" size="sm">
                   내 작업

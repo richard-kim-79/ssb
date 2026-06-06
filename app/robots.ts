@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Private/authenticated areas and API endpoints should not be indexed.
-      disallow: ["/api/", "/admin/", "/my-work", "/sessions/", "/submissions/", "/login", "/register"],
+      disallow: ["/api/", "/admin", "/my-work", "/sessions", "/submissions", "/api-keys", "/login", "/register"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

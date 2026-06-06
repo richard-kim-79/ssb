@@ -14,6 +14,9 @@ import type {
   RevisionWithResult,
   NewAnnotationInput,
   UpdateAnnotationInput,
+  BlogPost,
+  BlogPostInput,
+  AdminUser,
 } from "./types";
 
 export class ApiError extends Error {
@@ -125,4 +128,19 @@ export const api = {
       `/api/submissions/${submissionId}/patch/revisions`,
       jsonInit("POST", { content, parentRevisionId: parentRevisionId ?? null }),
     ),
+
+  // --- admin: blog ---
+  adminListPosts: () => request<{ posts: BlogPost[] }>("/api/admin/blog/posts"),
+  adminGetPost: (id: string) => request<{ post: BlogPost }>(`/api/admin/blog/posts/${id}`),
+  adminCreatePost: (input: BlogPostInput) =>
+    request<{ post: BlogPost }>("/api/admin/blog/posts", jsonInit("POST", input)),
+  adminUpdatePost: (id: string, input: Partial<BlogPostInput>) =>
+    request<{ post: BlogPost }>(`/api/admin/blog/posts/${id}`, jsonInit("PUT", input)),
+  adminDeletePost: (id: string) =>
+    request<void>(`/api/admin/blog/posts/${id}`, { method: "DELETE" }),
+
+  // --- admin: users ---
+  adminListUsers: () => request<{ users: AdminUser[] }>("/api/admin/users"),
+  adminSetUserAdmin: (id: string, isAdmin: 0 | 1) =>
+    request<{ user: AdminUser }>(`/api/admin/users/${id}`, jsonInit("PATCH", { isAdmin })),
 };

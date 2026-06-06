@@ -38,6 +38,54 @@ export interface ApiKey {
   createdAt: string;
 }
 
+export type BlogCategory = "essay-tips" | "admission-info" | "platform-guide" | "education-news";
+
+/** A blog post row as returned by the admin API (timestamps as ISO strings). */
+export interface BlogPost {
+  id: string;
+  authorId: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: BlogCategory;
+  tags: string[] | null;
+  featuredImage: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  isPublished: number;
+  publishedAt: string | null;
+  viewCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogPostInput {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: BlogCategory;
+  tags: string[];
+  featuredImage: string | null;
+  metaTitle: string | null;
+  metaDescription: string | null;
+  isPublished: number;
+}
+
+/** A user row as returned by the admin users API (no password hash). */
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string | null;
+  isAdmin: number;
+  isGuest: number;
+  guestUsageCount: number;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
 export interface Session {
   id: string;
   promptContent: string;
