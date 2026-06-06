@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
+import { useLiveRefresh } from "@/lib/client/useLiveRefresh";
 import type { AnalysisResult, Submission } from "@/lib/client/types";
 import { Alert, Button, Card, ProgressBar, Spinner } from "@/components/ui";
 
@@ -58,14 +59,13 @@ export default function ReportPage() {
     };
   }, [refresh, router]);
 
-  // Poll while still grading.
-  useEffect(() => {
-    if (!submission || !ACTIVE.has(submission.status)) return;
-    const t = setInterval(() => {
-      refresh().catch(() => {});
-    }, 2000);
-    return () => clearInterval(t);
-  }, [submission, refresh]);
+  // Live updates while still grading (Supabase Realtime, polling fallback).
+  useLiveRefresh({
+    active: !!submission && ACTIVE.has(submission.status),
+    refresh,
+    table: "essay_submissions",
+    filter: `id=eq.${submissionId}`,
+  });
 
   if (loading) {
     return (

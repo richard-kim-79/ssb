@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
+import { useLiveRefresh } from "@/lib/client/useLiveRefresh";
 import type { Session, Submission } from "@/lib/client/types";
 import { Alert, Button, Card, Field, Input, ProgressBar, Spinner, StatusBadge } from "@/components/ui";
 
@@ -66,15 +67,13 @@ export default function SessionDetailPage() {
     };
   }, [refresh, router]);
 
-  // Poll while any submission is still pending/analyzing.
-  useEffect(() => {
-    const anyActive = submissions.some((s) => ACTIVE.has(s.status));
-    if (!anyActive) return;
-    const t = setInterval(() => {
-      refresh().catch(() => {});
-    }, 2000);
-    return () => clearInterval(t);
-  }, [submissions, refresh]);
+  // Live updates while any submission is pending/analyzing (Realtime, poll fallback).
+  useLiveRefresh({
+    active: submissions.some((s) => ACTIVE.has(s.status)),
+    refresh,
+    table: "essay_submissions",
+    filter: `session_id=eq.${sessionId}`,
+  });
 
   async function submitEssay(e: React.FormEvent) {
     e.preventDefault();

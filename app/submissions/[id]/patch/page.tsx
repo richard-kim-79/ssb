@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "@/lib/client/api";
+import { useLiveRefresh } from "@/lib/client/useLiveRefresh";
 import type {
   AnalysisResult,
   Annotation,
@@ -107,18 +108,14 @@ export default function PatchWorkspacePage() {
     };
   }, [loadAll, router]);
 
-  // Poll revisions while any re-grade is running.
+  // Live updates while any re-grade is running (Realtime, polling fallback).
   const hasActiveRevision = revisions.some((r) => ACTIVE.has(r.revision.status));
-  useEffect(() => {
-    if (!hasActiveRevision) return;
-    const t = setInterval(() => {
-      api
-        .listRevisions(submissionId)
-        .then(({ revisions: revs }) => setRevisions(revs))
-        .catch(() => {});
-    }, 2000);
-    return () => clearInterval(t);
-  }, [hasActiveRevision, submissionId]);
+  useLiveRefresh({
+    active: hasActiveRevision,
+    refresh: () => api.listRevisions(submissionId).then(({ revisions: revs }) => setRevisions(revs)),
+    table: "essay_revisions",
+    filter: `submission_id=eq.${submissionId}`,
+  });
 
   const handleGenerate = useCallback(async () => {
     setGenerating(true);
