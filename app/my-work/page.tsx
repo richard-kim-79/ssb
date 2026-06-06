@@ -60,23 +60,29 @@ export default function MyWorkPage() {
     let alive = true;
     (async () => {
       try {
-        const me = await api.me();
+        // 세 호출은 서로 의존하지 않으므로 병렬 실행 (순차 대비 약 3배 빠름)
+        const [meRes, sessionsRes, subRes] = await Promise.allSettled([
+          api.me(),
+          api.listSessions(),
+          api.getSubscription(),
+        ]);
         if (!alive) return;
-        if (!me.user) {
+
+        // 인증 확인: me 실패 또는 비로그인 → 로그인 페이지로
+        if (meRes.status !== "fulfilled" || !meRes.value.user) {
           router.replace("/login");
           return;
         }
-        setIsGuest(me.user.isGuest === 1);
-        setUsage(me.usage ?? null);
-        const { sessions } = await api.listSessions();
-        if (!alive) return;
-        setSessions(sessions);
-        // 구독 정보는 부가 정보 — 실패해도 페이지는 계속 동작
-        try {
-          const sub = await api.getSubscription();
-          if (alive) setSubscription(sub.subscription);
-        } catch {
-          /* 구독 정보 없음/조회 실패는 무시 */
+        setIsGuest(meRes.value.user.isGuest === 1);
+        setUsage(meRes.value.usage ?? null);
+
+        // 세션 목록은 실패해도 페이지는 계속 동작
+        if (sessionsRes.status === "fulfilled") {
+          setSessions(sessionsRes.value.sessions);
+        }
+        // 구독 정보는 부가 정보 — 없거나 조회 실패해도 무시
+        if (subRes.status === "fulfilled") {
+          setSubscription(subRes.value.subscription);
         }
       } catch {
         if (alive) router.replace("/login");
